@@ -1,0 +1,126 @@
+
+// Developer: Forex Robot Easy Team
+// Developer's Site: forexroboteasy.com
+// Program Name: TopBottomEA MT5
+
+// Include necessary libraries
+#include <Trade\Trade.mqh>
+#include <Trade\PositionInfo.mqh>
+#include <Trade\SymbolInfo.mqh>
+#include <Trade\AccountInfo.mqh>
+#include <Trade\OrderInfo.mqh>
+
+// Define trade parameters
+input double lotSize = 0.01; // Default lot size
+input int tradeDuration = 12; // Trade duration in hours
+
+// Define trade statistics variables
+double totalProfit = 0;
+double totalLoss = 0;
+int totalWins = 0;
+int totalLosses = 0;
+int totalTrades = 0;
+
+// Define trade execution function
+void executeTrade(double price, ENUM_ORDER_TYPE orderType)
+{
+   // Open trade
+   CTrade trade;
+   trade.Buy(lotSize, Symbol(), price, 0, 0, 0, 'TopBottomEA MT5');
+
+   // Calculate trade duration
+   datetime openTime = TimeCurrent();
+   datetime closeTime = openTime + tradeDuration * 60 * 60;
+   
+   // Monitor and manage open trades
+   while (TimeCurrent() < closeTime)
+   {
+      // Check trade status
+      if (trade.PositionSelect(Symbol()))
+      {
+         // Update trade statistics
+         double profit = trade.PositionGetDouble(POSITION_PROFIT);
+         if (profit > 0)
+         {
+            totalProfit += profit;
+            totalWins++;
+         }
+         else
+         {
+            totalLoss += profit;
+            totalLosses++;
+         }
+      }
+   }
+
+   // Close trade
+   trade.Sell(lotSize, Symbol(), price, 0, 0, 0, 'TopBottomEA MT5');
+
+   // Update total trades count
+   totalTrades++;
+}
+
+// Calculate and display trade statistics
+void displayTradeStatistics()
+{
+   // Calculate win/loss ratio
+   double winLossRatio = totalWins / (totalWins + totalLosses);
+
+   // Display trade statistics
+   Print('Total Trades: ', totalTrades);
+   Print('Total Wins: ', totalWins);
+   Print('Total Losses: ', totalLosses);
+   Print('Total Profit: ', totalProfit);
+   Print('Total Loss: ', totalLoss);
+   Print('Win/Loss Ratio: ', winLossRatio);
+}
+
+// Main program
+void OnTick()
+{
+   // Get symbol information
+   CSymbolInfo symbol;
+   symbol.Name(Symbol());
+   double spread = symbol.Spread();
+
+   // Calculate stop loss and take profit levels
+   double stopLoss = spread * 2;
+   double takeProfit = spread * 3;
+
+   // Execute four trades per day
+   for (int i = 0; i < 4; i++)
+   {
+      // Check market volatility
+      if (symbol.ATR(14) > 0.5)
+      {
+         // Adjust trade parameters
+         stopLoss *= 2;
+         takeProfit *= 2;
+      }
+
+      // Execute long trade
+      double topPrice = symbol.High()[1] + spread;
+      executeTrade(topPrice, ORDER_TYPE_BUY);
+
+      // Execute short trade
+      double bottomPrice = symbol.Low()[1] - spread;
+      executeTrade(bottomPrice, ORDER_TYPE_SELL);
+   }
+
+   // Display trade statistics
+   displayTradeStatistics();
+}
+
+// Entry point of the program
+void OnStart()
+{
+   // Initialize trade statistics
+   totalProfit = 0;
+   totalLoss = 0;
+   totalWins = 0;
+   totalLosses = 0;
+   totalTrades = 0;
+
+   // Start the trading robot
+   OnTick();
+}
